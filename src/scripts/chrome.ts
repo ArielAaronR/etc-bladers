@@ -13,6 +13,9 @@ export function startChrome(
   anchor: HTMLElement,
   button: HTMLButtonElement,
   readout: HTMLElement,
+  // The "Coming up" list, when there is one: scrolling to it sends the logo back into the
+  // distance, crawl-style, instead of letting it scroll away.
+  crawl: HTMLElement | null = null,
 ) {
   let renderer: THREE.WebGLRenderer;
   try {
@@ -260,14 +263,26 @@ export function startChrome(
   };
   const placeHero = () => {
     const r = anchor.getBoundingClientRect();
-    const at = worldAt(
-      ((r.left + r.width / 2) / innerWidth) * 2 - 1,
-      -(((r.top + r.height / 2) / innerHeight) * 2 - 1),
-      0,
-    );
-    hero.position.x = at.x;
-    hero.position.y = at.y + float.y * at.h * 0.02;
-    hero.scale.setScalar((r.width / innerWidth) * at.w * 2);
+    const nx = ((r.left + r.width / 2) / innerWidth) * 2 - 1;
+    const base = worldAt(0, 0, 0);
+    const size = (r.width / innerWidth) * base.w * 2;
+    if (!crawl || reduce) {
+      const at = worldAt(nx, -(((r.top + r.height / 2) / innerHeight) * 2 - 1), 0);
+      hero.position.set(at.x, at.y + float.y * at.h * 0.02, 0);
+      hero.scale.setScalar(size);
+      return;
+    }
+    // Recede: hold the logo where it started on screen, then over the first screen of
+    // scrolling sink it toward the glowing horizon, back into the fog, and shrink it,
+    // moving the opposite way to the text scrolling up past it.
+    const p = Math.min(Math.max(scrollY / (innerHeight * 0.9), 0), 1);
+    const e = p * p * (3 - 2 * p);
+    const startY = r.top + scrollY + r.height / 2;
+    const y = startY + (innerHeight * 0.84 - startY) * e;
+    const z = -8 * e;
+    const at = worldAt(nx, -((y / innerHeight) * 2 - 1), z);
+    hero.position.set(at.x, at.y + float.y * at.h * 0.02 * (1 - e), z);
+    hero.scale.setScalar(size * (1 - 0.5 * e));
   };
 
   const render = () => {
@@ -320,6 +335,7 @@ export function startChrome(
     layout();
     if (reduce) render();
   });
+  if (reduce) addEventListener('scroll', render, { passive: true });
 
   if (reduce) {
     rider.position.set(0.64, 0, 0);

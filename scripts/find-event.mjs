@@ -1,20 +1,21 @@
-// Finds ETC's next event on West Coast Bladers and writes it to src/data/event.json,
-// which the page features. Run by the GitHub Actions workflow before each build, or by
-// hand with `npm run find-event`.
+// Finds ETC's upcoming events on West Coast Bladers and writes them to
+// src/data/events.json, which the page lists (the first one is featured). Run by the
+// GitHub Actions workflow before each build, or by hand with `npm run find-event`.
 //
 // WCB's events page is an app with no plain links, so this opens it in headless Chrome,
-// declines optional cookies, opens the first upcoming card whose title starts with the
-// prefix below, and reads the event's address from its "Open Page" button.
+// declines optional cookies, opens each upcoming card whose title starts with the
+// prefix below, and reads the event's address from its preview's "Open Page" button.
 //
-// Exit codes: 0 = event.json written (an event, or null when none is listed);
-//             1 = the page could not be read, event.json left untouched.
+// Exit codes: 0 = events.json written (a list, empty when none is listed);
+//             1 = the page could not be read, events.json left untouched.
 import puppeteer from 'puppeteer-core';
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const EVENTS_URL = 'https://westcoastbladers.com/events';
 const PREFIX = /^ETC Blader/i;
-const OUT = fileURLToPath(new URL('../src/data/event.json', import.meta.url));
+const MAX_EVENTS = 6;
+const OUT = fileURLToPath(new URL('../src/data/events.json', import.meta.url));
 
 const chromePath =
   process.env.CHROME_PATH ??
@@ -40,60 +41,76 @@ try {
   );
   await sleep(800);
 
-  // The list loads more as it scrolls; look a few screens down before giving up.
-  let card = null;
-  for (let i = 0; i < 6 && !card; i++) {
-    card = await page.evaluate((prefix) => {
-      const re = new RegExp(prefix, 'i');
-      const articles = [...document.querySelectorAll('article')];
-      const index = articles.findIndex((a) => re.test(a.querySelector('h3')?.textContent.trim() ?? ''));
-      if (index < 0) return null;
-      const a = articles[index];
-      const lines = a.innerText.split('\n').map((l) => l.trim()).filter(Boolean);
-      return {
-        index,
-        title: a.querySelector('h3').textContent.trim(),
-        when: lines.find((l) => /\b\d{4}\b.*•/.test(l)) ?? '',
-        address: lines[lines.indexOf('📍') + 1] ?? '',
-      };
-    }, PREFIX.source);
-    if (!card) {
-      await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
-      await sleep(1500);
-    }
+  // The list loads more as it scrolls; take a few screens' worth so next week's event
+  // shows up when it has already been posted.
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
+    await sleep(1200);
   }
 
-  if (!card) {
-    writeFileSync(OUT, 'null\n');
-    console.log('No upcoming ETC event listed. Wrote null; the page will link to all events.');
-  } else {
-    // Open the card's preview, then catch the address its "Open Page" button would open.
-    await page.evaluate((i) => document.querySelectorAll('article')[i].click(), card.index);
-    await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /Open Page/.test(b.textContent)), {
-      timeout: 15000,
-    });
-    const url = await page.evaluate(() => {
-      let opened = null;
-      window.open = (u) => ((opened = String(u)), null);
-      [...document.querySelectorAll('button')].find((b) => /Open Page/.test(b.textContent)).click();
-      return opened;
-    });
-    if (!url || !/\/events\/view\/[\w-]+$/.test(new URL(url, EVENTS_URL).pathname))
-      fail(`Found "${card.title}" but could not read its link (got ${url}).`);
+  const cards = await page.evaluate((prefix) => {
+    const re = new RegExp(prefix, 'i');
+    return [...document.querySelectorAll('article')]
+      .map((a, index) => ({ a, index }))
+      .filter(({ a }) => re.test(a.querySelector('h3')?.textContent.trim() ?? ''))
+      .map(({ a, index }) => {
+        const lines = a.innerText.split('\n').map((l) => l.trim()).filter(Boolean);
+        return {
+          index,
+          title: a.querySelector('h3').textContent.trim(),
+          when: lines.find((l) => /\b\d{4}\b.*•/.test(l)) ?? '',
+          address: lines[lines.indexOf('📍') + 1] ?? '',
+        };
+      });
+  }, PREFIX.source);
 
-    const event = {
-      title: card.title,
-      url: new URL(url, EVENTS_URL).href,
-      start: parseWhen(card.when),
-      place: venue(card.address),
-    };
-    writeFileSync(OUT, JSON.stringify(event, null, 2) + '\n');
-    console.log('Featured event:', event);
+  const events = [];
+  for (const card of cards.slice(0, MAX_EVENTS)) {
+    const url = await linkOf(page, card.index);
+    if (!url) fail(`Found "${card.title}" but could not read its link.`);
+    if (events.some((e) => e.url === url)) continue;
+    events.push({ title: card.title, url, start: parseWhen(card.when), place: venue(card.address) });
   }
+  events.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+
+  writeFileSync(OUT, JSON.stringify(events, null, 2) + '\n');
+  console.log(events.length ? `Found ${events.length} ETC event(s):` : 'No upcoming ETC events listed.', events);
 } catch (e) {
   fail(e.message);
 } finally {
   await browser.close();
+}
+
+// Opens a card's preview, catches the address its "Open Page" button would open, and
+// closes the preview again.
+async function linkOf(page, index) {
+  await page.evaluate((i) => document.querySelectorAll('article')[i].click(), index);
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /Open Page/.test(b.textContent)), {
+    timeout: 15000,
+  });
+  const url = await page.evaluate(() => {
+    let opened = null;
+    const open = window.open;
+    window.open = (u) => ((opened = String(u)), null);
+    [...document.querySelectorAll('button')].find((b) => /Open Page/.test(b.textContent)).click();
+    window.open = open;
+    return opened;
+  });
+  // Close the preview: its ✕ sits next to "Open Page".
+  await page.evaluate(() => {
+    const open = [...document.querySelectorAll('button')].find((b) => /Open Page/.test(b.textContent));
+    let box = open?.parentElement;
+    while (box && ![...box.querySelectorAll('button')].some((b) => b.textContent.trim() === '✕')) box = box.parentElement;
+    [...(box?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === '✕')?.click();
+  });
+  await page
+    .waitForFunction(() => ![...document.querySelectorAll('button')].some((b) => /Open Page/.test(b.textContent)), {
+      timeout: 5000,
+    })
+    .catch(() => page.keyboard.press('Escape'));
+  await sleep(400);
+  const full = url && new URL(url, EVENTS_URL);
+  return full && /\/events\/view\/[\w-]+$/.test(full.pathname) ? full.href : null;
 }
 
 // "Tuesday, October 27th, 2026 • 7 PM" → "2026-10-27T19:00:00-07:00" (Pacific time).

@@ -1,18 +1,19 @@
 // Edit these to point at your real accounts.
-import found from './data/event.json';
+import found from './data/events.json';
 
-export type FeaturedEvent = { title: string; url: string; start: string; place: string };
+export type EtcEvent = { title: string; url: string; start: string; place: string };
 
 export const site = {
   name: 'ETC Bladers',
   tagline: 'Beyblade crew · let it rip',
   eventsUrl: 'https://westcoastbladers.com/events',
-  // The event to feature comes from src/data/event.json, which `npm run find-event`
-  // (and the GitHub Actions workflow, daily) fills with ETC's next event on WCB:
+  // ETC's upcoming events, soonest first, from src/data/events.json. `npm run find-event`
+  // (and the GitHub Actions workflow, daily) fills it from WCB with:
   //   title, url (/events/view/<id>), start (Pacific time with offset), place (venue)
-  // To feature something by hand, edit that file; null shows "See upcoming events".
-  // Once start + 5 hours has passed, the page switches to "See upcoming events" by itself.
-  nextEvent: found as FeaturedEvent | null,
+  // The first upcoming one is featured; with two or more, the rest are listed below.
+  // An event drops off five hours after it starts. Edit the file to change it by hand;
+  // [] shows "See upcoming events".
+  events: found as EtcEvent[],
   socials: {
     instagram: 'https://www.instagram.com/etcbladers/',
     tiktok: 'https://www.tiktok.com/@etcbladers',

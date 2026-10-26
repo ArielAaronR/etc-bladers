@@ -4,23 +4,26 @@ import { site } from '../config';
 import { asset } from '../lib/asset';
 import '../styles/global.css';
 
-const event = site.nextEvent;
-// "ETC Blader Nights *Halloween Candy Bash*" → "ETC Blader Nights: Halloween Candy Bash"
-const eventName = event?.title.replace(/\s*\*(.+?)\*\s*/, ': $1').replace(/\*/g, '').trim();
-const eventWhen = event
-  ? new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Los_Angeles',
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-      .format(new Date(event.start))
-      .replace(':00', '')
-  : '';
-// Treat the event as over five hours after it starts.
-const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 1000).toISOString() : '';
+const pacific = (options: Intl.DateTimeFormatOptions) => (iso: string) =>
+  new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', ...options }).format(new Date(iso));
+const dayName = pacific({ weekday: 'short' });
+const monthDay = pacific({ month: 'short', day: 'numeric' });
+const time = (iso: string) => pacific({ hour: 'numeric', minute: '2-digit' })(iso).replace(':00', '');
+
+// Display strings for each event, also handed to the browser so it can drop past events.
+const events = site.events.map((e) => ({
+  url: e.url,
+  place: e.place,
+  // "ETC Blader Nights *Halloween Candy Bash*" → "ETC Blader Nights: Halloween Candy Bash"
+  name: e.title.replace(/\s*\*(.+?)\*\s*/, ': $1').replace(/\*/g, '').trim(),
+  when: `${dayName(e.start)}, ${monthDay(e.start)}, ${time(e.start)}`,
+  day: dayName(e.start),
+  date: monthDay(e.start),
+  time: time(e.start),
+  // Treat an event as over five hours after it starts.
+  ends: new Date(e.start).getTime() + 5 * 3600 * 1000,
+}));
+const featured = events[0];
 ---
 
 <!doctype html>
@@ -63,28 +66,28 @@ const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 
           <Logo3D />
         </div>
 
-        <div class="stage__action" data-load style="--d:500ms" data-event-ends={eventEnds}>
+        <div class="stage__action" data-load style="--d:500ms">
           {
-            event && (
-              <div class="stage__event" data-event>
-                <h2 class="stage__event-name">{eventName}</h2>
+            featured && (
+              <div class="stage__event" data-featured>
+                <h2 class="stage__event-name" data-name>{featured.name}</h2>
                 <p class="stage__event-when">
-                  <span>{eventWhen}</span>
+                  <span data-when>{featured.when}</span>
                   <span class="stage__event-sep"> · </span>
-                  <span>{event.place}</span>
+                  <span data-place>{featured.place}</span>
                 </p>
               </div>
             )
           }
           <a
             class="button button--chrome"
-            href={event ? event.url : site.eventsUrl}
+            href={featured ? featured.url : site.eventsUrl}
             target="_blank"
             rel="noopener"
-            data-event-link
+            data-featured-link
           >
             <span>
-              {event ? (
+              {featured ? (
                 <>
                   Register<span class="wide-only"> on West Coast Bladers</span>
                 </>
@@ -94,19 +97,75 @@ const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 
             </span>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6" /></svg>
           </a>
+          {events.length > 1 && (
+            <a class="stage__more link" href="#coming-up" data-more>
+              {events.length} ETC events coming up ↓
+            </a>
+          )}
         </div>
       </main>
     </div>
 
-    <script is:inline define:vars={{ eventsUrl: site.eventsUrl }}>
-      // After the featured event has ended, point at the full list instead.
-      const action = document.querySelector('[data-event-ends]');
-      const ends = action && Date.parse(action.dataset.eventEnds);
-      if (ends && Date.now() > ends) {
-        action.querySelector('[data-event]')?.remove();
-        const link = action.querySelector('[data-event-link]');
+    {
+      events.length > 1 && (
+        <section class="crawl" id="coming-up" aria-labelledby="coming-up-title" data-crawl>
+          <h2 class="crawl__title" id="coming-up-title">Coming up</h2>
+          <ol class="crawl__list">
+            {events.map((e) => (
+              <li class="crawl__item" data-ends={e.ends}>
+                <a class="crawl__row" href={e.url} target="_blank" rel="noopener">
+                  <span class="crawl__date">
+                    <span class="crawl__day">{e.day}</span>
+                    <span class="crawl__md">{e.date}</span>
+                  </span>
+                  <span class="crawl__what">
+                    <span class="crawl__name">{e.name}</span>
+                    <span class="crawl__meta">
+                      {e.time} · {e.place}
+                    </span>
+                  </span>
+                  <span class="crawl__go">
+                    Register
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6" /></svg>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+          <a class="crawl__all link" href={site.eventsUrl} target="_blank" rel="noopener">
+            All events on West Coast Bladers ↗
+          </a>
+        </section>
+      )
+    }
+
+    <script is:inline define:vars={{ events, eventsUrl: site.eventsUrl }}>
+      // The page is built once a day; drop events that have ended since, and feature the
+      // next one still to come.
+      const now = Date.now();
+      const upcoming = events.filter((e) => e.ends > now);
+      const next = upcoming[0];
+      const featured = document.querySelector('[data-featured]');
+      const link = document.querySelector('[data-featured-link]');
+      if (!next) {
+        featured?.remove();
         link.href = eventsUrl;
         link.querySelector('span').textContent = 'See upcoming events';
+      } else if (featured && next.url !== link.href) {
+        featured.querySelector('[data-name]').textContent = next.name;
+        featured.querySelector('[data-when]').textContent = next.when;
+        featured.querySelector('[data-place]').textContent = next.place;
+        link.href = next.url;
+      }
+      document.querySelectorAll('[data-ends]').forEach((li) => {
+        if (Number(li.dataset.ends) <= now) li.remove();
+      });
+      if (upcoming.length < 2) {
+        document.querySelector('[data-crawl]')?.remove();
+        document.querySelector('[data-more]')?.remove();
+      } else {
+        const more = document.querySelector('[data-more]');
+        if (more) more.textContent = upcoming.length + ' ETC events coming up ↓';
       }
     </script>
     <script>
@@ -115,7 +174,8 @@ const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 
         document.querySelector<HTMLCanvasElement>('canvas.chrome')!,
         document.querySelector<HTMLElement>('[data-logo-anchor]')!,
         document.querySelector<HTMLButtonElement>('[data-logo-anchor]')!,
-        document.getElementById('logo-readout')!
+        document.getElementById('logo-readout')!,
+        document.querySelector<HTMLElement>('[data-crawl]')
       );
     </script>
   </body>
@@ -271,6 +331,134 @@ const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 
     }
     .button--chrome:hover svg {
       transform: translate(2px, -2px);
+    }
+  }
+
+  .stage__more {
+    font-size: var(--step-small);
+    color: var(--ink-soft);
+  }
+
+  /* Coming up: rows rise from the horizon tilted back, crawl-style, and straighten as
+     they reach the middle of the screen so they read and tap normally. */
+  .crawl {
+    display: grid;
+    justify-items: center;
+    gap: 32px;
+    padding: 18vh var(--margin) 28vh;
+    perspective: 900px;
+  }
+  .crawl__title {
+    font-size: clamp(28px, 4vw, 48px);
+  }
+  .crawl__list {
+    display: grid;
+    gap: 16px;
+    width: min(100%, 760px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .crawl__row {
+    display: grid;
+    grid-template-columns: 4.8em 1fr auto;
+    align-items: center;
+    gap: clamp(16px, 3vw, 32px);
+    padding: 20px clamp(18px, 3vw, 28px);
+    border: 1px solid rgba(160, 245, 235, 0.22);
+    border-radius: 24px;
+    background: rgba(2, 18, 28, 0.62);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    text-decoration: none;
+    transition:
+      border-color var(--t-hover) ease,
+      transform var(--t-press) var(--ease-out);
+  }
+  .crawl__row:active {
+    transform: scale(0.98);
+  }
+  .crawl__date {
+    display: grid;
+    justify-items: center;
+    font-family: var(--display);
+    line-height: 1.1;
+  }
+  .crawl__day {
+    font-size: var(--step-small);
+    color: #5ff0d6;
+  }
+  .crawl__md {
+    font-size: clamp(18px, 2vw, 22px);
+    white-space: nowrap;
+  }
+  .crawl__what {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  .crawl__name {
+    font-family: var(--display);
+    font-size: clamp(15px, 1.7vw, 19px);
+    line-height: 1.3;
+  }
+  .crawl__meta {
+    color: var(--ink-soft);
+  }
+  .crawl__go {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--step-small);
+    white-space: nowrap;
+  }
+  .crawl__go svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    transition: transform var(--t-hover) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .crawl__row:hover {
+      border-color: rgba(160, 245, 235, 0.7);
+    }
+    .crawl__row:hover .crawl__go svg {
+      transform: translate(2px, -2px);
+    }
+  }
+  .crawl__all {
+    font-size: var(--step-small);
+    color: var(--ink-soft);
+  }
+  @media (max-width: 599px) {
+    .crawl__row {
+      grid-template-columns: 4.8em 1fr;
+    }
+    .crawl__go {
+      display: none;
+    }
+  }
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .crawl__title,
+      .crawl__item {
+        transform-origin: 50% 100%;
+        animation: crawl-in linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+      }
+    }
+  }
+  @keyframes crawl-in {
+    from {
+      opacity: 0;
+      transform: translateY(40px) rotateX(42deg) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
 </style>
