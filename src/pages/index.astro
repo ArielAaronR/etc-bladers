@@ -169,7 +169,10 @@ const featured = events[0];
       }
     </script>
     <script>
+      import { gsap } from 'gsap';
+      import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
       import { startChrome } from '../scripts/chrome';
+
       startChrome(
         document.querySelector<HTMLCanvasElement>('canvas.chrome')!,
         document.querySelector<HTMLElement>('[data-logo-anchor]')!,
@@ -177,6 +180,27 @@ const featured = events[0];
         document.getElementById('logo-readout')!,
         document.querySelector<HTMLElement>('[data-crawl]')
       );
+
+      // "N events coming up" glides down to the list instead of jumping, so the logo
+      // visibly recedes on the way. A wheel or touch mid-way hands control back.
+      gsap.registerPlugin(ScrollToPlugin);
+      const more = document.querySelector<HTMLAnchorElement>('[data-more]');
+      const crawl = document.querySelector<HTMLElement>('[data-crawl]');
+      more?.addEventListener('click', (event) => {
+        if (!crawl || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        event.preventDefault();
+        const title = crawl.querySelector<HTMLElement>('.crawl__title')!;
+        gsap.to(window, {
+          duration: 1.6,
+          ease: 'power3.inOut',
+          scrollTo: { y: crawl, autoKill: true },
+          onComplete: () => {
+            title.tabIndex = -1;
+            title.focus({ preventScroll: true });
+            history.replaceState(null, '', '#coming-up');
+          },
+        });
+      });
     </script>
   </body>
 </html>
@@ -255,7 +279,8 @@ const featured = events[0];
     gap: 28px;
   }
   .stage__logo {
-    width: min(100%, 640px, 72vh);
+    /* The last term leaves room for the orbit ring on a phone (see chrome.ts). */
+    width: min(100%, 640px, 72vh, calc((100vw - 32px) / 1.41));
   }
   /* Room for the orbit ring, which dips below the logo. */
   .stage__logo :global(.logo3d) {

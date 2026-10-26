@@ -6,6 +6,8 @@ import { asset } from '../lib/asset';
 
 const LOGO_ASPECT = 521 / 1598; // height / width of public/logo.png (made by `npm run logo`)
 const DEPTH = 14;
+const ORBIT_RADIUS = 0.64; // the ring, in logo widths
+const STAR_SIZE = 0.16; // the star riding it
 const TAU = Math.PI * 2;
 
 export function startChrome(
@@ -205,11 +207,11 @@ export function startChrome(
   orbit.rotation.set(1.22, 0, -0.2);
   orbit.position.y = -0.03;
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.64, 0.02, 32, 200),
+    new THREE.TorusGeometry(ORBIT_RADIUS, 0.02, 32, 200),
     chrome,
   );
   const rider = new THREE.Mesh(spikyStar(), chrome);
-  rider.scale.setScalar(0.16);
+  rider.scale.setScalar(STAR_SIZE);
   orbit.add(ring, rider);
   // The ring is tipped over; undo that so the star rides it standing upright, turning on its own axis.
   const upright = new THREE.Quaternion();
@@ -242,6 +244,8 @@ export function startChrome(
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     const narrow = camera.aspect < 0.8;
+    // On a phone the ring hugs the letters a little closer so the logo can stay big.
+    orbit.scale.setScalar(narrow ? 0.88 : 1);
     for (const p of props) {
       const at = worldAt(
         p.nx * (narrow ? 1.05 : 1),
@@ -265,7 +269,10 @@ export function startChrome(
     const r = anchor.getBoundingClientRect();
     const nx = ((r.left + r.width / 2) / innerWidth) * 2 - 1;
     const base = worldAt(0, 0, 0);
-    const size = (r.width / innerWidth) * base.w * 2;
+    // The ring and its star reach past the letters; keep all of it inside the screen
+    // with a 16px margin each side.
+    const reach = (ORBIT_RADIUS + STAR_SIZE) * 2 * orbit.scale.x;
+    const size = (Math.min(r.width, (innerWidth - 32) / reach) / innerWidth) * base.w * 2;
     if (!crawl || reduce) {
       const at = worldAt(nx, -(((r.top + r.height / 2) / innerHeight) * 2 - 1), 0);
       hero.position.set(at.x, at.y + float.y * at.h * 0.02, 0);
