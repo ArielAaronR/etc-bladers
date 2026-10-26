@@ -1,0 +1,22 @@
+{
+  "name": "etc-bladers",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "logo": "node scripts/make-logo.mjs",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "find-event": "node scripts/find-event.mjs"
+  },
+  "dependencies": {
+    "astro": "^5.0.0",
+    "gsap": "^3.12.5",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1",
+    "sharp": "^0.33.5"
+  }
+}

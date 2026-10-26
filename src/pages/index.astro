@@ -1,0 +1,276 @@
+---
+import Logo3D from '../components/Logo3D.astro';
+import { site } from '../config';
+import { asset } from '../lib/asset';
+import '../styles/global.css';
+
+const event = site.nextEvent;
+// "ETC Blader Nights *Halloween Candy Bash*" → "ETC Blader Nights: Halloween Candy Bash"
+const eventName = event?.title.replace(/\s*\*(.+?)\*\s*/, ': $1').replace(/\*/g, '').trim();
+const eventWhen = event
+  ? new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+      .format(new Date(event.start))
+      .replace(':00', '')
+  : '';
+// Treat the event as over five hours after it starts.
+const eventEnds = event ? new Date(new Date(event.start).getTime() + 5 * 3600 * 1000).toISOString() : '';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#020b12" />
+    <title>{site.name}</title>
+    <meta name="description" content={`${site.name}: a Beyblade crew. Next event, Instagram and TikTok.`} />
+    <meta property="og:title" content={site.name} />
+    <meta property="og:image" content={Astro.site ? new URL(asset('logo.png'), Astro.site).href : asset('logo.png')} />
+    <link rel="icon" type="image/png" href={asset('logo.png')} />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500&family=Michroma&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true">
+      <div class="backdrop__floor"></div>
+    </div>
+    <canvas class="chrome" aria-hidden="true"></canvas>
+
+    <div class="lander">
+      <nav class="nav" aria-label="Main">
+        <span class="nav__mark">ETC Bladers</span>
+        <ul class="nav__links">
+          <li><a class="link" href={site.socials.instagram} target="_blank" rel="noopener">Instagram</a></li>
+          <li><a class="link" href={site.socials.tiktok} target="_blank" rel="noopener">TikTok</a></li>
+        </ul>
+      </nav>
+
+      <main class="stage">
+        <h1 class="sr-only">ETC Bladers</h1>
+        <div class="stage__logo">
+          <Logo3D />
+        </div>
+
+        <div class="stage__action" data-load style="--d:500ms" data-event-ends={eventEnds}>
+          {
+            event && (
+              <div class="stage__event" data-event>
+                <h2 class="stage__event-name">{eventName}</h2>
+                <p class="stage__event-when">
+                  <span>{eventWhen}</span>
+                  <span class="stage__event-sep"> · </span>
+                  <span>{event.place}</span>
+                </p>
+              </div>
+            )
+          }
+          <a
+            class="button button--chrome"
+            href={event ? event.url : site.eventsUrl}
+            target="_blank"
+            rel="noopener"
+            data-event-link
+          >
+            <span>
+              {event ? (
+                <>
+                  Register<span class="wide-only"> on West Coast Bladers</span>
+                </>
+              ) : (
+                'See upcoming events'
+              )}
+            </span>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6" /></svg>
+          </a>
+        </div>
+      </main>
+    </div>
+
+    <script is:inline define:vars={{ eventsUrl: site.eventsUrl }}>
+      // After the featured event has ended, point at the full list instead.
+      const action = document.querySelector('[data-event-ends]');
+      const ends = action && Date.parse(action.dataset.eventEnds);
+      if (ends && Date.now() > ends) {
+        action.querySelector('[data-event]')?.remove();
+        const link = action.querySelector('[data-event-link]');
+        link.href = eventsUrl;
+        link.querySelector('span').textContent = 'See upcoming events';
+      }
+    </script>
+    <script>
+      import { startChrome } from '../scripts/chrome';
+      startChrome(
+        document.querySelector<HTMLCanvasElement>('canvas.chrome')!,
+        document.querySelector<HTMLElement>('[data-logo-anchor]')!,
+        document.querySelector<HTMLButtonElement>('[data-logo-anchor]')!,
+        document.getElementById('logo-readout')!
+      );
+    </script>
+  </body>
+</html>
+
+<style>
+  /* Deep violet space with a glowing horizon and a chrome-poster grid floor. */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 70% 38% at 50% 100%, #2fe0c8 0%, #0e9fd8 26%, rgba(6, 70, 110, 0.6) 55%, transparent 80%),
+      radial-gradient(ellipse 60% 50% at 50% 30%, rgba(6, 60, 90, 0.5), transparent 70%),
+      var(--ground);
+  }
+  .backdrop__floor {
+    position: absolute;
+    left: -50%;
+    right: -50%;
+    bottom: -10%;
+    height: 70%;
+    background-image:
+      linear-gradient(rgba(170, 250, 240, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(170, 250, 240, 0.5) 1px, transparent 1px);
+    background-size: 72px 72px;
+    transform: perspective(600px) rotateX(60deg);
+    transform-origin: 50% 100%;
+    -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 95%);
+    mask-image: linear-gradient(to top, #000 30%, transparent 95%);
+  }
+  .chrome {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .lander {
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 24px var(--margin) 40px;
+  }
+  .nav {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .nav__mark {
+    font-family: var(--display);
+    font-size: var(--step-small);
+  }
+  .nav__links {
+    display: flex;
+    gap: 24px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .nav__links a {
+    display: inline-block;
+    padding: 10px 0;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    align-content: center;
+    gap: 28px;
+  }
+  .stage__logo {
+    width: min(100%, 640px, 72vh);
+  }
+  /* Room for the orbit ring, which dips below the logo. */
+  .stage__logo :global(.logo3d) {
+    gap: min(12vw, 64px, 7vh);
+  }
+
+  .stage__action {
+    display: grid;
+    justify-items: center;
+    gap: 20px;
+    text-align: center;
+  }
+  .stage__event {
+    display: grid;
+    gap: 6px;
+  }
+  .stage__event-name {
+    font-size: clamp(18px, 2vw, 24px);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    max-width: 22em;
+  }
+  .stage__event-when {
+    color: var(--ink-soft);
+  }
+  @media (max-width: 599px) {
+    .stage__event-when span:not(.stage__event-sep) {
+      display: block;
+    }
+    .stage__event-sep,
+    .wide-only {
+      display: none;
+    }
+  }
+
+  /* A pill of polished metal: banded highlights that slide on hover. */
+  .button--chrome {
+    gap: 10px;
+    min-height: 56px;
+    padding: 0 32px;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    background: linear-gradient(
+        180deg,
+        #ffffff 0%,
+        #e2fbf6 30%,
+        #7fd8e0 48%,
+        #1d93bf 52%,
+        #bff5ec 74%,
+        #ffffff 100%
+      )
+      0 0 / 100% 200%;
+    color: #032230;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      inset 0 -2px 6px rgba(10, 120, 170, 0.35),
+      0 0 28px rgba(47, 224, 200, 0.45);
+    transition:
+      transform var(--t-press) var(--ease-out),
+      background-position 400ms var(--ease-out);
+  }
+  .button--chrome svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    transition: transform var(--t-hover) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .button--chrome:hover {
+      background-color: transparent;
+      background-position: 0 100%;
+    }
+    .button--chrome:hover svg {
+      transform: translate(2px, -2px);
+    }
+  }
+</style>

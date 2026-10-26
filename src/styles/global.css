@@ -1,0 +1,157 @@
+:root {
+  /* Brand colours, taken from the logo */
+  --ground: #020b12;
+  --ink: #effcff;
+  --ink-soft: #9fd3df;
+  --accent: #41e6ff;
+  --teal: #3ff0d0;
+  --mid: #0e6fa3;
+  --deep: #0b3550;
+  --raise: #08172a;
+
+  --display: 'Michroma', system-ui, sans-serif;
+  --body: 'Chakra Petch', system-ui, sans-serif;
+
+  /* Five type steps */
+  --step-display: clamp(44px, 5.6vw, 88px);
+  --step-head: clamp(28px, 3.2vw, 48px);
+  --step-lead: clamp(22px, 2.3vw, 34px);
+  --step-body: 18px;
+  --step-giant: 19vw;
+  --step-small: 14px;
+
+  --margin: clamp(20px, 4vw, 56px);
+  --gutter: clamp(16px, 2vw, 28px);
+  --section: clamp(112px, 14vw, 200px);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
+  --t-press: 140ms;
+  --t-hover: 180ms;
+  --t-ui: 240ms;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: var(--step-body);
+  line-height: 1.55;
+  overflow-x: clip;
+}
+img,
+video,
+svg {
+  display: block;
+  max-width: 100%;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2 {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+a {
+  color: inherit;
+}
+::selection {
+  background: var(--accent);
+  color: var(--ground);
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The motif: the orbit ring from the logo. Buttons and frames take its round shape. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ground);
+  font-family: var(--display);
+  font-size: var(--step-small);
+  text-decoration: none;
+  transition:
+    transform var(--t-press) var(--ease-out),
+    background-color var(--t-hover) ease;
+}
+.button:active {
+  transform: scale(0.97);
+}
+.link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 0.08em;
+  transition: text-decoration-color var(--t-hover) ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    background-color: var(--ink);
+  }
+  .link:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+/* Entrances: content is visible without script; html.js opts in. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 700ms var(--ease-out),
+      transform 900ms var(--ease-expo);
+    transition-delay: calc(var(--i, 0) * 80ms);
+  }
+  .js [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+  .js [data-load] {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: load-rise 600ms var(--ease-out) forwards;
+    animation-delay: var(--d, 0ms);
+  }
+}
+@keyframes load-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

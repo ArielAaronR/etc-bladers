@@ -1,0 +1,71 @@
+---
+// The logo's place on the page. The 3D logo is drawn by the chrome scene behind this box;
+// the flat logo here shows until that scene is ready, and stays if WebGL is unavailable.
+import { asset } from '../lib/asset';
+---
+
+<div class="logo3d">
+  <button
+    class="logo-spin"
+    type="button"
+    aria-describedby="logo-readout"
+    data-logo-anchor
+  >
+    <span class="sr-only">Launch the ETC logo: press and hold, then let go</span
+    >
+    <img
+      class="logo-flat"
+      src={asset('logo.png')}
+      alt=""
+      width="1598"
+      height="521"
+      draggable="false"
+      fetchpriority="high"
+    />
+  </button>
+  <p class="logo-readout" id="logo-readout" aria-live="polite">
+    The ETC Bladers logo
+  </p>
+</div>
+
+<style>
+  .logo3d {
+    display: grid;
+    justify-items: center;
+  }
+  .logo-spin {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: grab;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  .logo-spin:active {
+    cursor: grabbing;
+  }
+  .logo-spin:focus-visible {
+    outline-offset: 8px;
+    border-radius: 999px;
+  }
+  .logo-flat {
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+  }
+  :global(.chrome-ready) .logo-flat {
+    opacity: 0;
+  }
+  .logo-readout {
+    padding: 6px 16px;
+    font-size: var(--step-small);
+    color: var(--ink-soft);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
