@@ -11,7 +11,11 @@ const monthDay = pacific({ month: 'short', day: 'numeric' });
 const time = (iso: string) => pacific({ hour: 'numeric', minute: '2-digit' })(iso).replace(':00', '');
 
 // Display strings for each event, also handed to the browser so it can drop past events.
-const events = site.events.map((e) => ({
+// events.json is filled from WCB, so only WCB event links are trusted.
+const wcb = new URL(site.eventsUrl).origin;
+const events = site.events
+  .filter((e) => URL.canParse(e.url) && new URL(e.url).origin === wcb)
+  .map((e) => ({
   url: e.url,
   place: e.place,
   // "ETC Blader Nights *Halloween Candy Bash*" → "ETC Blader Nights: Halloween Candy Bash"
@@ -24,6 +28,8 @@ const events = site.events.map((e) => ({
   ends: new Date(e.start).getTime() + 5 * 3600 * 1000,
 }));
 const featured = events[0];
+// Handed to the browser as JSON; `<` is escaped so text from WCB can never close the tag.
+const eventsJson = JSON.stringify({ events, eventsUrl: site.eventsUrl }).replace(/</g, '\\u003c');
 ---
 
 <!doctype html>
@@ -167,33 +173,37 @@ const featured = events[0];
       )
     }
 
-    <script is:inline define:vars={{ events, eventsUrl: site.eventsUrl }}>
-      // The page is built once a day; drop events that have ended since, and feature the
-      // next one still to come.
-      const now = Date.now();
-      const upcoming = events.filter((e) => e.ends > now);
-      const next = upcoming[0];
-      const featured = document.querySelector('[data-featured]');
-      const link = document.querySelector('[data-featured-link]');
-      if (!next) {
-        featured?.remove();
-        link.href = eventsUrl;
-        link.querySelector('span').textContent = 'See upcoming events';
-      } else if (featured && next.url !== link.href) {
-        featured.querySelector('[data-name]').textContent = next.name;
-        featured.querySelector('[data-when]').textContent = next.when;
-        featured.querySelector('[data-place]').textContent = next.place;
-        link.href = next.url;
-      }
-      document.querySelectorAll('[data-ends]').forEach((li) => {
-        if (Number(li.dataset.ends) <= now) li.remove();
-      });
-      if (upcoming.length < 2) {
-        document.querySelector('[data-crawl]')?.remove();
-        document.querySelector('[data-more]')?.remove();
-      } else {
-        const more = document.querySelector('[data-more]');
-        if (more) more.textContent = upcoming.length + ' ETC events coming up ↓';
+    <script type="application/json" id="events-data" set:html={eventsJson} />
+    <script is:inline>
+      {
+        const { events, eventsUrl } = JSON.parse(document.getElementById('events-data').textContent);
+        // The page is built once a day; drop events that have ended since, and feature the
+        // next one still to come.
+        const now = Date.now();
+        const upcoming = events.filter((e) => e.ends > now);
+        const next = upcoming[0];
+        const featured = document.querySelector('[data-featured]');
+        const link = document.querySelector('[data-featured-link]');
+        if (!next) {
+          featured?.remove();
+          link.href = eventsUrl;
+          link.querySelector('span').textContent = 'See upcoming events';
+        } else if (featured && next.url !== link.href) {
+          featured.querySelector('[data-name]').textContent = next.name;
+          featured.querySelector('[data-when]').textContent = next.when;
+          featured.querySelector('[data-place]').textContent = next.place;
+          link.href = next.url;
+        }
+        document.querySelectorAll('[data-ends]').forEach((li) => {
+          if (Number(li.dataset.ends) <= now) li.remove();
+        });
+        if (upcoming.length < 2) {
+          document.querySelector('[data-crawl]')?.remove();
+          document.querySelector('[data-more]')?.remove();
+        } else {
+          const more = document.querySelector('[data-more]');
+          if (more) more.textContent = upcoming.length + ' ETC events coming up ↓';
+        }
       }
     </script>
     <script>

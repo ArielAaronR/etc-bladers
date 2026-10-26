@@ -10,10 +10,9 @@ on:
     - cron: '0 15 * * *' # 15:00 UTC = 8 AM Pacific in summer, 7 AM in winter
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Nothing gets write access by default. The build job runs npm packages and a browser
+# that visits WCB, so it can only read the repo; only the deploy job can publish.
+permissions: {}
 
 concurrency:
   group: pages
@@ -22,8 +21,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read # configure-pages looks up the site's address
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -32,7 +36,7 @@ jobs:
 
       - run: npm ci
 
-      # If WCB can't be read, keep the committed src/data/event.json and still deploy;
+      # If WCB can't be read, keep the committed src/data/events.json and still deploy;
       # the page stops featuring an event once its start time has passed.
       - name: Find ETC's next event
         run: npm run find-event
@@ -56,6 +60,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

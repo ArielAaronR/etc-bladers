@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 const EVENTS_URL = 'https://westcoastbladers.com/events';
 const PREFIX = /^ETC Blader/i;
+// Anyone can post an event on WCB and give it an "ETC Blader…" title, so only events
+// hosted by one of these WCB accounts count. Add a name here if ETC gets a new host.
+const HOSTS = ['Be_Gentle', 'JTtheG', 'Rokou'];
 const MAX_EVENTS = 6;
 const OUT = fileURLToPath(new URL('../src/data/events.json', import.meta.url));
 
@@ -60,16 +63,19 @@ try {
           title: a.querySelector('h3').textContent.trim(),
           when: lines.find((l) => /\b\d{4}\b.*•/.test(l)) ?? '',
           address: lines[lines.indexOf('📍') + 1] ?? '',
+          host: lines.find((l) => l.startsWith('Hosted by '))?.slice('Hosted by '.length) ?? '',
         };
       });
   }, PREFIX.source);
 
+  const ours = cards.filter((c) => HOSTS.includes(c.host));
+  for (const c of cards) if (!ours.includes(c)) console.warn(`Skipping "${c.title}": hosted by "${c.host}", not ETC.`);
   const events = [];
-  for (const card of cards.slice(0, MAX_EVENTS)) {
+  for (const card of ours.slice(0, MAX_EVENTS)) {
     const url = await linkOf(page, card.index);
     if (!url) fail(`Found "${card.title}" but could not read its link.`);
     if (events.some((e) => e.url === url)) continue;
-    events.push({ title: card.title, url, start: parseWhen(card.when), place: venue(card.address) });
+    events.push({ title: clean(card.title), url, start: parseWhen(card.when), place: clean(venue(card.address)) });
   }
   events.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
 
@@ -110,7 +116,9 @@ async function linkOf(page, index) {
     .catch(() => page.keyboard.press('Escape'));
   await sleep(400);
   const full = url && new URL(url, EVENTS_URL);
-  return full && /\/events\/view\/[\w-]+$/.test(full.pathname) ? full.href : null;
+  return full && full.origin === new URL(EVENTS_URL).origin && /^\/events\/view\/[\w-]+$/.test(full.pathname)
+    ? full.origin + full.pathname
+    : null;
 }
 
 // "Tuesday, October 27th, 2026 • 7 PM" → "2026-10-27T19:00:00-07:00" (Pacific time).
@@ -134,6 +142,11 @@ function parseWhen(text) {
 function venue(address) {
   const name = address.split(/\s\d/)[0].trim();
   return name && name !== address ? name : address;
+}
+
+// Text from WCB goes on the page; keep it to one plain, reasonably short line.
+function clean(text) {
+  return text.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 }
 
 function sleep(ms) {
