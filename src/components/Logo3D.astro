@@ -29,9 +29,15 @@ import { asset } from '../lib/asset';
 </div>
 
 <style>
+  /* Holding the logo is the game, so a long press must not start selecting text (the
+     button's label, the readout under it) or open the image menu. Safari still needs the
+     -webkit- spelling. */
   .logo3d {
     display: grid;
     justify-items: center;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   .logo-spin {
     display: block;
@@ -43,8 +49,6 @@ import { asset } from '../lib/asset';
     cursor: grab;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    user-select: none;
   }
   .logo-spin:active {
     cursor: grabbing;

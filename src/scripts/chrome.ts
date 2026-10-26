@@ -445,6 +445,7 @@ export function startChrome(
   button.addEventListener('pointerup', release);
   button.addEventListener('pointercancel', release);
   button.addEventListener('contextmenu', (e) => e.preventDefault());
+  button.addEventListener('selectstart', (e) => e.preventDefault());
   button.addEventListener('keydown', (e) => {
     if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
       e.preventDefault();
