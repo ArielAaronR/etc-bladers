@@ -16,7 +16,7 @@ const EVENTS_URL = 'https://westcoastbladers.com/events';
 const PREFIX = /^ETC\b/i;
 // Anyone can post an event on WCB and give it an "ETC…" title, so only events
 // hosted by one of these WCB accounts count. Add a name here if ETC gets a new host.
-const HOSTS = ['Be_Gentle', 'JTtheG', 'Rokou'];
+const HOSTS = ['Be_Gentle', 'JaredPom', 'JTtheG', 'Rokou'];
 const MAX_EVENTS = 6;
 const OUT = fileURLToPath(new URL('../src/data/events.json', import.meta.url));
 
