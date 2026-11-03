@@ -13,8 +13,8 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const EVENTS_URL = 'https://westcoastbladers.com/events';
-const PREFIX = /^ETC Blader/i;
-// Anyone can post an event on WCB and give it an "ETC Blader…" title, so only events
+const PREFIX = /^ETC\b/i;
+// Anyone can post an event on WCB and give it an "ETC…" title, so only events
 // hosted by one of these WCB accounts count. Add a name here if ETC gets a new host.
 const HOSTS = ['Be_Gentle', 'JTtheG', 'Rokou'];
 const MAX_EVENTS = 6;
